@@ -91,7 +91,7 @@ sess.run(tf.global_variables_initializer())
 
 MOD_PARAM = 1000
 ITERATIONS = 1000000
-BATCH_SIZE = 50
+BATCH_SIZE = 100
 
 tr_accuracies = np.zeros(ITERATIONS / MOD_PARAM)
 te_accuracies = np.zeros(ITERATIONS / MOD_PARAM)
@@ -110,11 +110,16 @@ with sess.as_default():
 
             tr_accuracies[i / MOD_PARAM] = train_accuracy
 
-            test_accuracy = accuracy.eval(feed_dict = {
-                x: X_test, y_: Y_test
-            })
+            i = 0
+            total = 0
+            for n in xrange(0, len(Y_test), BATCH_SIZE):
+                test_accuracy = accuracy.eval(feed_dict = {
+                    x: X_test[n:n+BATCH_SIZE], y_: Y_test[n:n+BATCH_SIZE]
+                })
 
-            te_accuracies[i / MOD_PARAM] = test_accuracy
+                total += test_accuracy
+
+            te_accuracies[i / MOD_PARAM] = total / (len(Y_test) / BATCH_SIZE)
 
             print "Iteration: %d - Training Accuracy: %f - Test Accuracy: %f" % (i,
                                                                                  train_accuracy,
