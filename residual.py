@@ -56,6 +56,8 @@ def next_batch(num):
         yield (X_train[i-num:i], Y_train[i-num:i])
 
 
+N_HYPER = 3
+assert N_HYPER > 1
 
 x = tf.placeholder(tf.float32, shape=[None, 32, 32, 3])
 y_ = tf.placeholder(tf.int64, shape=[None])
@@ -67,15 +69,22 @@ init_out = tf.nn.relu(_conv2d(x, W_init))
 # Residual block 1
 res1 = _res_block(init_out, [3, 3, 16, 16], "16_residual")
 
+for blk in range(1, N_HYPER):
+    res1 = _res_block(res1, [3, 3, 16, 16], "16_residual_%d" % (blk))
+
 # Residual block 2
 # res1_W = _init_weight([1, 1, 16, 32], "res2_W") # Match the dimensions!
 # res1_out = tf.nn.relu(_conv2d(res1, res1_W))
 res2 = _res_block(res1, [3, 3, 16, 32], "32_residual")
+for blk in range(1, N_HYPER):
+    res2 = _res_block(res2, [3, 3, 32, 32], "32_residual_%d" % (blk))
 
 # Residual block 3
 # res2_W = _init_weight([1, 1, 32, 64], "res3_W") # Match the dimensions!
 # res2_out = tf.nn.relu(_conv2d(res2, res2_W))
 res3 = _res_block(res2, [3, 3, 32, 64], "64_residual")
+for blk in range(1, N_HYPER):
+    res3 = _res_block(res3, [3, 3, 64, 64], "64_residual_%d" % (blk))
 
 # FC
 avg1 = tf.nn.avg_pool(res3, ksize=[1, 2, 2, 1], strides = [1, 2, 2, 1], padding = 'SAME')
@@ -93,7 +102,8 @@ cross_entropy = tf.reduce_mean(
     tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y_, logits=out)
 )
 
-train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
+training_rate = tf.placeholder(tf.float32, shape=[])
+train_step = tf.train.AdamOptimizer(training_rate).minimize(cross_entropy)
 
 correct_prediction = tf.equal(tf.cast(tf.argmax(out, 1), tf.int64), y_)
 preds = tf.argmax(out, 1)
@@ -143,7 +153,7 @@ with sess.as_default():
                                                                                  train_accuracy,
                                                                                  test_accuracy)
 
-        train_step.run(feed_dict={x: batch_x, y_: batch_y})
+        train_step.run(feed_dict={x: batch_x, y_: batch_y, training_rate: 1e-4})
 
 plt.plot(tr_accuracies, color = 'red', label='training')
 plt.plot(te_accuracies, color = 'blue', label='test')
