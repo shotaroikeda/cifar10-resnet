@@ -108,7 +108,8 @@ train_step = tf.train.AdamOptimizer(training_rate).minimize(cross_entropy)
 correct_prediction = tf.equal(tf.cast(tf.argmax(out, 1), tf.int64), y_)
 preds = tf.argmax(out, 1)
 
-accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+accuracy = tf.reduce_sum(tf.cast(correct_prediction, tf.float32))
+
 sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
@@ -127,33 +128,32 @@ te_accuracies = np.zeros(ITERATIONS / MOD_PARAM)
 
 batches = next_batch(BATCH_SIZE)
 
-with sess.as_default():
-    for i in xrange(ITERATIONS):
-
-        batch_x, batch_y = batches.next()
-
-        if i % MOD_PARAM == 0:
-            train_accuracy = accuracy.eval(feed_dict = {
-                x: batch_x, y_: batch_y
-            })
-
-            tr_accuracies[i / MOD_PARAM] = train_accuracy
-
-            total = 0
-            for n in xrange(0, len(Y_test), BATCH_SIZE):
-                test_accuracy = accuracy.eval(feed_dict = {
-                    x: X_test[n:n+BATCH_SIZE], y_: Y_test[n:n+BATCH_SIZE]
+try:
+    with sess.as_default():
+        for i in xrange(ITERATIONS):
+            batch_x, batch_y = batches.next()
+            if i % MOD_PARAM == 0:
+                train_accuracy = accuracy.eval(feed_dict = {
+                    x: batch_x, y_: batch_y
                 })
+                tr_accuracies[i / MOD_PARAM] = train_accuracy / BATCH_SIZE
+                total = 0
+                for n in xrange(0, len(Y_test), BATCH_SIZE):
+                    test_accuracy = accuracy.eval(feed_dict = {
+                        x: X_test[n:n+BATCH_SIZE], y_: Y_test[n:n+BATCH_SIZE]
+                    })
+                    total += test_accuracy
 
-                total += test_accuracy
+                te_accuracies[i / MOD_PARAM] = total / len(Y_test)
 
-            te_accuracies[i / MOD_PARAM] = total / (len(Y_test) / BATCH_SIZE)
-
-            print "Iteration: %d - Training Accuracy: %f - Test Accuracy: %f" % (i,
+                print "Iteration: %d - Training Accuracy: %f - Test Accuracy: %f" % (i,
                                                                                  train_accuracy,
                                                                                  test_accuracy)
 
-        train_step.run(feed_dict={x: batch_x, y_: batch_y, training_rate: 1e-4})
+            train_step.run(feed_dict={x: batch_x, y_: batch_y, training_rate: 1e-6})
+except KeyboardInterrupt:
+    tr_accuracies = tr_accuracies[tr_accuracies != 0]
+    te_accuracies = te_accuracies[te_accuracies != 0]
 
 plt.plot(tr_accuracies, color = 'red', label='training')
 plt.plot(te_accuracies, color = 'blue', label='test')
