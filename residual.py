@@ -48,8 +48,6 @@ def _res_block(input, dims, name):
 def next_batch(num):
     i = 0
 
-    while True: yield (X_train[:10], Y_train[:10])
-
     while True:
         if i+num > len(X_train):
             i = 0
