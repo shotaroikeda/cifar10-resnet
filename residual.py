@@ -11,25 +11,44 @@ def _init_weight(dims, name):
     return tf.get_variable(name+'_bias', shape = dims,
                            initializer = tf.contrib.layers.xavier_initializer())
 
+def _conv2d_shrink(input, filter):
+    return tf.nn.conv2d(input, filter,
+                        strides = [1, 2, 2, 1], padding='SAME')
+
 def _conv2d(input, filter):
     return tf.nn.conv2d(input, filter,
                         strides=[1, 1, 1, 1], padding='SAME')
 
 def _res_block(input, dims, name):
-    W1 = _init_conv(dims, name+'1')
-    # b1 = _init_weight([64], name+'1')
-    res_1 = tf.nn.relu(_conv2d(input, W1))
+    input_dims = input.get_shape().as_list()
+    diff = input_dims[3] != dims[3]
 
-    W2 = _init_conv(dims, name+'2')
-    # b2 = _init_weight([64], name+'2')
-    res_2 = tf.nn.relu(_conv2d(res_1, W2))
+    with tf.variable_scope(name):
+        batch_1 = tf.nn.relu(tf.layers.batch_normalization(input, name = "batch_norm_1"))
+        if diff:
+            res_1 = _conv2d_shrink(batch_1, _init_conv(dims, "W1"))
+        else:
+            res_1 = _conv2d(batch_1, _init_conv(dims, "W1"))
 
-    return tf.nn.relu(res_2 + input)
-    
+        batch_2 = tf.nn.relu(tf.layers.batch_normalization(res_1, name = "batch_norm_2"))
+        dims[2] = dims[3] # Change the dimension after the first conv
+        W2 = _init_conv(dims, "W2")
+        res_out = _conv2d(batch_2, W2)
+
+    if diff:
+        shrink_pool = tf.nn.avg_pool(input, ksize=[1,2,2,1], strides=[1,2,2,1], padding = 'SAME')
+        padding = ((0, 0), (0, 0), (0, 0), (input_dims[3] / 2, input_dims[3] / 2))
+        shrink_input = tf.pad(shrink_pool, padding)
+        return res_out + shrink_input
+
+    return res_out + input
+
 (X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
 
 def next_batch(num):
     i = 0
+
+    while True: yield (X_train[:10], Y_train[:10])
 
     while True:
         if i+num > len(X_train):
@@ -39,9 +58,6 @@ def next_batch(num):
         yield (X_train[i-num:i], Y_train[i-num:i])
 
 
-# sm_y = sm_y.reshape([10, 1])
-# x = X_train[:10] # grab first 10
-# y_ = Y_train[:10]
 
 x = tf.placeholder(tf.float32, shape=[None, 32, 32, 3])
 y_ = tf.placeholder(tf.int64, shape=[None])
@@ -51,23 +67,23 @@ W_init = _init_weight([32, 32, 3, 16], "w_init")
 init_out = tf.nn.relu(_conv2d(x, W_init))
 
 # Residual block 1
-res1 = _res_block(init_out, [32, 32, 16, 16], "16_residual")
+res1 = _res_block(init_out, [3, 3, 16, 16], "16_residual")
 
 # Residual block 2
-res1_W = _init_weight([1, 1, 16, 32], "res2_W") # Match the dimensions!
-res1_out = tf.nn.relu(_conv2d(res1, res1_W))
-res2 = _res_block(res1_out, [32, 32, 32, 32], "32_residual")
+# res1_W = _init_weight([1, 1, 16, 32], "res2_W") # Match the dimensions!
+# res1_out = tf.nn.relu(_conv2d(res1, res1_W))
+res2 = _res_block(res1, [3, 3, 16, 32], "32_residual")
 
 # Residual block 3
-res2_W = _init_weight([1, 1, 32, 64], "res3_W") # Match the dimensions!
-res2_out = tf.nn.relu(_conv2d(res2, res2_W))
-res3 = _res_block(res2_out, [32, 32, 64, 64], "64_residual")
+# res2_W = _init_weight([1, 1, 32, 64], "res3_W") # Match the dimensions!
+# res2_out = tf.nn.relu(_conv2d(res2, res2_W))
+res3 = _res_block(res2, [3, 3, 32, 64], "64_residual")
 
 # FC
 avg1 = tf.nn.avg_pool(res3, ksize=[1, 2, 2, 1], strides = [1, 2, 2, 1], padding = 'SAME')
-avg1_reshape = tf.reshape(avg1, [-1, 16*16*64])
+avg1_reshape = tf.reshape(avg1, [-1, 4*4*64])
 
-W_fc = _init_weight([16*16*64, 1024], "W_fc1")
+W_fc = _init_weight([4*4*64, 1024], "W_fc1")
 b_fc = _init_weight([1024], "b_fc1")
 fc1 = tf.matmul(avg1_reshape, W_fc) + b_fc
 
@@ -93,6 +109,11 @@ MOD_PARAM = 1000
 ITERATIONS = 1000000
 BATCH_SIZE = 100
 
+# Laptop tests only
+# MOD_PARAM = 1
+# ITERATIONS = 25
+# BATCH_SIZE = 1
+
 tr_accuracies = np.zeros(ITERATIONS / MOD_PARAM)
 te_accuracies = np.zeros(ITERATIONS / MOD_PARAM)
 
@@ -110,7 +131,6 @@ with sess.as_default():
 
             tr_accuracies[i / MOD_PARAM] = train_accuracy
 
-            i = 0
             total = 0
             for n in xrange(0, len(Y_test), BATCH_SIZE):
                 test_accuracy = accuracy.eval(feed_dict = {
@@ -129,4 +149,8 @@ with sess.as_default():
 
 plt.plot(tr_accuracies, color = 'red', label='training')
 plt.plot(te_accuracies, color = 'blue', label='test')
+plt.title("Accuracy Over Iterations")
+plt.xlabel("Iterations")
+plt.ylabel("Accuracy")
+plt.legend(loc="best")
 plt.savefig("progress.png", dpi=1000)
