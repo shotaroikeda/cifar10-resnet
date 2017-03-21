@@ -117,7 +117,7 @@ sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
 
-MOD_PARAM = 100
+MOD_PARAM = 500
 ITERATIONS = 150000
 BATCH_SIZE = 128
 
@@ -151,9 +151,9 @@ try:
 
                 print "Iteration: %d - Training Accuracy: %f - Test Accuracy: %f" % (i,
                                                                                      train_accuracy / BATCH_SIZE,
-                                                                                     test_accuracy / len(Y_test))
+                                                                                     total / len(Y_test))
 
-            train_step.run(feed_dict={x: batch_x, y_: batch_y, training_rate: 1e-6})
+            train_step.run(feed_dict={x: batch_x, y_: batch_y, training_rate: 1e-8})
 except KeyboardInterrupt:
     tr_accuracies = tr_accuracies[tr_accuracies != 0]
     te_accuracies = te_accuracies[te_accuracies != 0]
