@@ -1,3 +1,6 @@
+import matplotlib
+matplotlib.use('AGG')
+
 import tensorflow as tf
 import numpy as np
 from tflearn.datasets import cifar10
@@ -114,9 +117,9 @@ sess = tf.Session()
 sess.run(tf.global_variables_initializer())
 
 
-MOD_PARAM = 1000
+MOD_PARAM = 100
 ITERATIONS = 150000
-BATCH_SIZE = 100
+BATCH_SIZE = 128
 
 # Laptop tests only
 # MOD_PARAM = 1
@@ -147,8 +150,8 @@ try:
                 te_accuracies[i / MOD_PARAM] = total / len(Y_test)
 
                 print "Iteration: %d - Training Accuracy: %f - Test Accuracy: %f" % (i,
-                                                                                 train_accuracy,
-                                                                                 test_accuracy)
+                                                                                     train_accuracy / BATCH_SIZE,
+                                                                                     test_accuracy / len(Y_test))
 
             train_step.run(feed_dict={x: batch_x, y_: batch_y, training_rate: 1e-6})
 except KeyboardInterrupt:
