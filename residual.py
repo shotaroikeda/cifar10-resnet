@@ -153,7 +153,7 @@ try:
                                                                                      train_accuracy / BATCH_SIZE,
                                                                                      total / len(Y_test))
 
-            train_step.run(feed_dict={x: batch_x, y_: batch_y, training_rate: 1e-8})
+            train_step.run(feed_dict={x: batch_x, y_: batch_y, training_rate: 5e-6})
 except KeyboardInterrupt:
     tr_accuracies = tr_accuracies[tr_accuracies != 0]
     te_accuracies = te_accuracies[te_accuracies != 0]
