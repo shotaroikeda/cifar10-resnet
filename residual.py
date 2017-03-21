@@ -114,7 +114,7 @@ sess.run(tf.global_variables_initializer())
 
 
 MOD_PARAM = 1000
-ITERATIONS = 1000000
+ITERATIONS = 150000
 BATCH_SIZE = 100
 
 # Laptop tests only
