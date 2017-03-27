@@ -22,18 +22,20 @@ def _conv2d(input, filter):
     return tf.nn.conv2d(input, filter,
                         strides=[1, 1, 1, 1], padding='SAME')
 
-def _res_block(input, dims, name):
+def _res_block(input, dims, name, training):
     input_dims = input.get_shape().as_list()
     diff = input_dims[3] != dims[3]
 
     with tf.variable_scope(name):
-        batch_1 = tf.nn.relu(tf.layers.batch_normalization(input, name = "batch_norm_1"))
+        batch_1 = tf.nn.relu(tf.layers.batch_normalization(input,
+                                                           name = "batch_norm_1", training = training))
         if diff:
             res_1 = _conv2d_shrink(batch_1, _init_conv(dims, "W1"))
         else:
             res_1 = _conv2d(batch_1, _init_conv(dims, "W1"))
 
-        batch_2 = tf.nn.relu(tf.layers.batch_normalization(res_1, name = "batch_norm_2"))
+        batch_2 = tf.nn.relu(tf.layers.batch_normalization(res_1,
+                                                           name = "batch_norm_2", training = training))
         dims[2] = dims[3] # Change the dimension after the first conv
         W2 = _init_conv(dims, "W2")
         res_out = _conv2d(batch_2, W2)
@@ -65,29 +67,37 @@ assert N_HYPER > 1
 x = tf.placeholder(tf.float32, shape=[None, 32, 32, 3])
 y_ = tf.placeholder(tf.int64, shape=[None])
 
+training = tf.placeholder(tf.bool, shape=[None])
+
 # Before magic
 W_init = _init_weight([32, 32, 3, 16], "w_init")
 init_out = tf.nn.relu(_conv2d(x, W_init))
 
 # Residual block 1
-res1 = _res_block(init_out, [3, 3, 16, 16], "16_residual")
+res1 = _res_block(init_out, [3, 3, 16, 16],
+                  "16_residual", training = training)
 
 for blk in range(1, N_HYPER):
-    res1 = _res_block(res1, [3, 3, 16, 16], "16_residual_%d" % (blk))
+    res1 = _res_block(res1, [3, 3, 16, 16],
+                      "16_residual_%d" % (blk), training = training)
 
 # Residual block 2
 # res1_W = _init_weight([1, 1, 16, 32], "res2_W") # Match the dimensions!
 # res1_out = tf.nn.relu(_conv2d(res1, res1_W))
-res2 = _res_block(res1, [3, 3, 16, 32], "32_residual")
+res2 = _res_block(res1, [3, 3, 16, 32],
+                  "32_residual", training = training)
 for blk in range(1, N_HYPER):
-    res2 = _res_block(res2, [3, 3, 32, 32], "32_residual_%d" % (blk))
+    res2 = _res_block(res2, [3, 3, 32, 32],
+                      "32_residual_%d" % (blk), training = training)
 
 # Residual block 3
 # res2_W = _init_weight([1, 1, 32, 64], "res3_W") # Match the dimensions!
 # res2_out = tf.nn.relu(_conv2d(res2, res2_W))
-res3 = _res_block(res2, [3, 3, 32, 64], "64_residual")
+res3 = _res_block(res2, [3, 3, 32, 64],
+                  "64_residual", training = training)
 for blk in range(1, N_HYPER):
-    res3 = _res_block(res3, [3, 3, 64, 64], "64_residual_%d" % (blk))
+    res3 = _res_block(res3, [3, 3, 64, 64],
+                      "64_residual_%d" % (blk), training = training)
 
 # FC
 avg1 = tf.nn.avg_pool(res3, ksize=[1, 2, 2, 1], strides = [1, 2, 2, 1], padding = 'SAME')
@@ -137,13 +147,15 @@ try:
             batch_x, batch_y = batches.next()
             if i % MOD_PARAM == 0:
                 train_accuracy = accuracy.eval(feed_dict = {
-                    x: batch_x, y_: batch_y
+                    x: batch_x, y_: batch_y, training: False
                 })
                 tr_accuracies[i / MOD_PARAM] = train_accuracy / BATCH_SIZE
                 total = 0
                 for n in xrange(0, len(Y_test), BATCH_SIZE):
                     test_accuracy = accuracy.eval(feed_dict = {
-                        x: X_test[n:n+BATCH_SIZE], y_: Y_test[n:n+BATCH_SIZE]
+                        x: X_test[n:n+BATCH_SIZE],
+                        y_: Y_test[n:n+BATCH_SIZE],
+                        training: False
                     })
                     total += test_accuracy
 
@@ -153,7 +165,13 @@ try:
                                                                                      train_accuracy / BATCH_SIZE,
                                                                                      total / len(Y_test))
 
-            train_step.run(feed_dict={x: batch_x, y_: batch_y, training_rate: 5e-6})
+            train_step.run(feed_dict={
+                x: batch_x,
+                y_: batch_y,
+                training_rate: 5e-6,
+                training: True
+            })
+
 except KeyboardInterrupt:
     tr_accuracies = tr_accuracies[tr_accuracies != 0]
     te_accuracies = te_accuracies[te_accuracies != 0]
