@@ -67,7 +67,7 @@ assert N_HYPER > 1
 x = tf.placeholder(tf.float32, shape=[None, 32, 32, 3])
 y_ = tf.placeholder(tf.int64, shape=[None])
 
-training = tf.placeholder(tf.bool, shape=[None])
+training = tf.placeholder(tf.bool)
 
 # Before magic
 W_init = _init_weight([32, 32, 3, 16], "w_init")
@@ -140,6 +140,8 @@ tr_accuracies = np.zeros(ITERATIONS / MOD_PARAM)
 te_accuracies = np.zeros(ITERATIONS / MOD_PARAM)
 
 batches = next_batch(BATCH_SIZE)
+
+print "Finished initialization"
 
 try:
     with sess.as_default():
