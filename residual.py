@@ -170,7 +170,7 @@ try:
             train_step.run(feed_dict={
                 x: batch_x,
                 y_: batch_y,
-                training_rate: 5e-6,
+                training_rate: 1e-4,
                 training: True
             })
 
