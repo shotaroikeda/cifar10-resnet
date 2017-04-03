@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('AGG')
+# matplotlib.use('AGG')
 
 import tensorflow as tf
 import numpy as np
@@ -25,6 +25,7 @@ def _conv2d(input, filter):
 def _res_block(input, dims, name, training):
     input_dims = input.get_shape().as_list()
     diff = input_dims[3] != dims[3]
+    print "Difference %d" % (diff)
 
     with tf.variable_scope(name):
         batch_1 = tf.nn.relu(tf.layers.batch_normalization(input,
@@ -80,87 +81,91 @@ def next_batch(num):
 if __name__ == '__main__':
     N_HYPER = 3
     assert N_HYPER > 1
-    
+
     x = tf.placeholder(tf.float32, shape=[None, 32, 32, 3])
     y_ = tf.placeholder(tf.int64, shape=[None])
-    
+
     training = tf.placeholder(tf.bool)
-    
+
     # Before magic
     W_init = _init_weight([32, 32, 3, 16], "w_init")
-    init_out = tf.nn.relu(_conv2d(x, W_init))
-    
+    init_out = tf.nn.relu(tf.layers.batch_normalization(
+        _conv2d(x, W_init),
+        name = "batch_norm_0",
+        training = training
+    ))
+
     # Residual block 1
     res1 = _res_block(init_out, [3, 3, 16, 16],
                       "16_residual", training = training)
-    
+
     for blk in range(2*N_HYPER):
         res1 = _res_block(res1, [3, 3, 16, 16],
                           "16_residual_%d" % (blk+1), training = training)
-    
+
     # Residual block 2
-    # res1_W = _init_weight([1, 1, 16, 32], "res2_W") # Match the dimensions!
-    # res1_out = tf.nn.relu(_conv2d(res1, res1_W))
     res2 = _res_block(res1, [3, 3, 16, 32],
                       "32_residual", training = training)
     for blk in range(2*N_HYPER-1):
         res2 = _res_block(res2, [3, 3, 32, 32],
                           "32_residual_%d" % (blk+1), training = training)
-    
+
     # Residual block 3
-    # res2_W = _init_weight([1, 1, 32, 64], "res3_W") # Match the dimensions!
-    # res2_out = tf.nn.relu(_conv2d(res2, res2_W))
     res3 = _res_block(res2, [3, 3, 32, 64],
                       "64_residual", training = training)
     for blk in range(2*N_HYPER-1):
         res3 = _res_block(res3, [3, 3, 64, 64],
                           "64_residual_%d" % (blk+1), training = training)
-    
+
     # FC
     avg1 = tf.nn.avg_pool(res3, ksize=[1, 2, 2, 1], strides = [1, 2, 2, 1], padding = 'SAME')
     avg1_reshape = tf.reshape(avg1, [-1, 4*4*64])
-    
-    W_fc = _init_weight([4*4*64, 1024], "W_fc1")
-    b_fc = _init_weight([1024], "b_fc1")
-    fc1 = tf.matmul(avg1_reshape, W_fc) + b_fc
-    
+
+    W_fc = _init_weight([4*4*64, 1000], "W_fc1")
+    b_fc = _init_weight([1000], "b_fc1")
+    fc1 = tf.nn.relu(tf.layers.batch_normalization(tf.matmul(avg1_reshape, W_fc) + b_fc,
+                                                   name = "fc1_batch_norm",
+                                                   training = training))
+
     W_out = _init_weight([1024, 10], "W_out")
     b_out = _init_weight([10], "b_out")
-    out = tf.matmul(fc1, W_out) + b_out
-    
+    out = tf.nn.relu(tf.layers.batch_normalization(tf.matmul(fc1, W_out) + b_out,
+                                                   name = "fc_out_batch_norm",
+                                                   training = training))
+
     cross_entropy = tf.reduce_mean(
         tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y_, logits=out)
     )
-    
+
     training_rate = tf.placeholder(tf.float32, shape=[])
     train_step = tf.train.AdamOptimizer(training_rate).minimize(cross_entropy)
-    
+
     correct_prediction = tf.equal(tf.cast(tf.argmax(out, 1), tf.int64), y_)
     preds = tf.argmax(out, 1)
-    
+
     accuracy = tf.reduce_sum(tf.cast(correct_prediction, tf.float32))
-    
+
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
-    
-    
+
+
     MOD_PARAM = 500
     ITERATIONS = 150000
     BATCH_SIZE = 128
-    
+
     # Laptop tests only
     # MOD_PARAM = 1
     # ITERATIONS = 25
     # BATCH_SIZE = 1
-    
+
     tr_accuracies = np.zeros(ITERATIONS / MOD_PARAM)
     te_accuracies = np.zeros(ITERATIONS / MOD_PARAM)
-    
+
     batches = next_batch(BATCH_SIZE)
     X_test, Y_test = batches.next()
-    
+
     print "Finished initialization"
-    
+
     try:
         with sess.as_default():
             for i in xrange(ITERATIONS):
@@ -179,24 +184,24 @@ if __name__ == '__main__':
                             training: False
                         })
                         total += test_accuracy
-    
+
                     te_accuracies[i / MOD_PARAM] = total / len(Y_test)
-    
+
                     print "Iteration: %d - Training Accuracy: %f - Test Accuracy: %f" % (i,
                                                                                          train_accuracy / BATCH_SIZE,
                                                                                          total / len(Y_test))
-    
+
                 train_step.run(feed_dict={
                     x: batch_x,
                     y_: batch_y,
-                    training_rate: 1e-4,
+                    training_rate: 1e-5,
                     training: True
                 })
-    
+
     except KeyboardInterrupt:
         tr_accuracies = tr_accuracies[tr_accuracies != 0]
         te_accuracies = te_accuracies[te_accuracies != 0]
-    
+
     plt.plot(tr_accuracies, color = 'red', label='training')
     plt.plot(te_accuracies, color = 'blue', label='test')
     plt.title("Accuracy Over Iterations")
