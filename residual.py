@@ -131,8 +131,8 @@ if __name__ == '__main__':
     training_rate = tf.placeholder(tf.float32, shape=[])
     train_step = tf.train.MomentumOptimizer(training_rate, 0.9).minimize(cross_entropy)
 
-    correct_prediction = tf.equal(tf.cast(tf.argmax(out, 1), tf.int64), y_)
-    preds = tf.argmax(out, 1)
+    preds = tf.argmax(fc1, 1)
+    correct_prediction = tf.equal(tf.cast(preds, tf.int64), y_)
 
     accuracy = tf.reduce_sum(tf.cast(correct_prediction, tf.float32))
 
