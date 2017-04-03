@@ -32,21 +32,25 @@ def _res_block(input, dims, name, training):
         else:
             res_1 = _conv2d(input, _init_conv(dims, "W1"))
 
-        batch_1 = tf.nn.relu(tf.layers.batch_normalization(res_1,
-                                                           name = "batch_norm_1", training = training))
+        batch_1 = tf.nn.relu(tf.contrib.layers.batch_norm(res_1,
+                                                          center = True, scale = True,
+                                                          scope = "batch_norm_1", is_training = training))
         dims[2] = dims[3] # Change the dimension after the first conv
         W2 = _init_conv(dims, "W2")
         # BN before non-linearlity
-        res_out = tf.layers.batch_normalization(_conv2d(batch_1, W2),
-                                                name = "batch_norm_2", training = training)
+        res_out = tf.contrib.layers.batch_norm(_conv2d(batch_1, W2),
+                                               center = True,
+                                               scale = True,
+                                               is_training = training,
+                                               scope = "batch_norm_2")
 
     if diff:
         shrink_pool = tf.nn.avg_pool(input, ksize=[1,2,2,1], strides=[1,2,2,1], padding = 'SAME')
         padding = ((0, 0), (0, 0), (0, 0), (input_dims[3] / 2, input_dims[3] / 2))
         shrink_input = tf.pad(shrink_pool, padding)
-        return tf.nn.relu(res_out + shrink_input)
+        return res_out + shrink_input
 
-    return tf.nn.relu(res_out + input)
+    return res_out + input
 
 def next_batch(num):
     (X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
@@ -88,10 +92,11 @@ if __name__ == '__main__':
 
     # Before magic
     W_init = _init_weight([32, 32, 3, 16], "w_init")
-    init_out = tf.nn.relu(tf.layers.batch_normalization(
+    init_out = tf.nn.relu(tf.contrib.layers.batch_norm(
         _conv2d(x, W_init),
-        name = "batch_norm_0",
-        training = training
+        center = True, scale = True,
+        scope = "batch_norm_0",
+        is_training = training
     ))
 
     # Residual block 1
@@ -163,7 +168,10 @@ if __name__ == '__main__':
                 batch_x, batch_y = batches.next()
                 if i % MOD_PARAM == 0:
                     train_accuracy = accuracy.eval(feed_dict = {
-                        x: batch_x, y_: batch_y, training: False
+                        x: batch_x,
+                        y_: batch_y,
+                        training_rate: 0,
+                        training: False
                     })
                     tr_accuracies[i / MOD_PARAM] = train_accuracy / BATCH_SIZE
 
@@ -172,6 +180,7 @@ if __name__ == '__main__':
                         test_accuracy = accuracy.eval(feed_dict = {
                             x: X_test[n:n+BATCH_SIZE],
                             y_: Y_test[n:n+BATCH_SIZE],
+                            training_rate: 0,
                             training: False
                         })
                         total += test_accuracy
