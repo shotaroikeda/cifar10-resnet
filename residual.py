@@ -44,9 +44,9 @@ def _res_block(input, dims, name, training):
         shrink_pool = tf.nn.avg_pool(input, ksize=[1,2,2,1], strides=[1,2,2,1], padding = 'SAME')
         padding = ((0, 0), (0, 0), (0, 0), (input_dims[3] / 2, input_dims[3] / 2))
         shrink_input = tf.pad(shrink_pool, padding)
-        return res_out + shrink_input
+        return tf.nn.relu(res_out + shrink_input)
 
-    return res_out + input
+    return tf.nn.relu(res_out + input)
 
 def next_batch(num):
     (X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
