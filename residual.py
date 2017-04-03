@@ -28,16 +28,16 @@ def _res_block(input, dims, name, training):
 
     with tf.variable_scope(name):
         if diff:
-            res_1 = _conv2d_shrink(batch_1, _init_conv(dims, "W1"))
+            res_1 = _conv2d_shrink(input, _init_conv(dims, "W1"))
         else:
-            res_1 = _conv2d(batch_1, _init_conv(dims, "W1"))
+            res_1 = _conv2d(input, _init_conv(dims, "W1"))
 
         batch_1 = tf.nn.relu(tf.layers.batch_normalization(res_1,
                                                            name = "batch_norm_1", training = training))
         dims[2] = dims[3] # Change the dimension after the first conv
         W2 = _init_conv(dims, "W2")
         # BN before non-linearlity
-        res_out = tf.layers.batch_normalization(_conv2d(batch_2, W2),
+        res_out = tf.layers.batch_normalization(_conv2d(batch_1, W2),
                                                 name = "batch_norm_2", training = training)
 
     if diff:
