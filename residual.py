@@ -1,5 +1,5 @@
 import matplotlib
-# matplotlib.use('AGG')
+matplotlib.use('AGG')
 
 import tensorflow as tf
 import numpy as np
@@ -25,7 +25,6 @@ def _conv2d(input, filter):
 def _res_block(input, dims, name, training):
     input_dims = input.get_shape().as_list()
     diff = input_dims[3] != dims[3]
-    print "Difference %d" % (diff)
 
     with tf.variable_scope(name):
         batch_1 = tf.nn.relu(tf.layers.batch_normalization(input,
@@ -127,7 +126,7 @@ if __name__ == '__main__':
                                                    name = "fc1_batch_norm",
                                                    training = training))
 
-    W_out = _init_weight([1024, 10], "W_out")
+    W_out = _init_weight([1000, 10], "W_out")
     b_out = _init_weight([10], "b_out")
     out = tf.nn.relu(tf.layers.batch_normalization(tf.matmul(fc1, W_out) + b_out,
                                                    name = "fc_out_batch_norm",
