@@ -27,18 +27,18 @@ def _res_block(input, dims, name, training):
     diff = input_dims[3] != dims[3]
 
     with tf.variable_scope(name):
-        batch_1 = tf.nn.relu(tf.layers.batch_normalization(input,
-                                                           name = "batch_norm_1", training = training))
         if diff:
             res_1 = _conv2d_shrink(batch_1, _init_conv(dims, "W1"))
         else:
             res_1 = _conv2d(batch_1, _init_conv(dims, "W1"))
 
-        batch_2 = tf.nn.relu(tf.layers.batch_normalization(res_1,
-                                                           name = "batch_norm_2", training = training))
+        batch_1 = tf.nn.relu(tf.layers.batch_normalization(res_1,
+                                                           name = "batch_norm_1", training = training))
         dims[2] = dims[3] # Change the dimension after the first conv
         W2 = _init_conv(dims, "W2")
-        res_out = _conv2d(batch_2, W2)
+        # BN before non-linearlity
+        res_out = tf.layers.batch_normalization(_conv2d(batch_2, W2),
+                                                name = "batch_norm_2", training = training)
 
     if diff:
         shrink_pool = tf.nn.avg_pool(input, ksize=[1,2,2,1], strides=[1,2,2,1], padding = 'SAME')
@@ -137,7 +137,7 @@ if __name__ == '__main__':
     )
 
     training_rate = tf.placeholder(tf.float32, shape=[])
-    train_step = tf.train.AdamOptimizer(training_rate).minimize(cross_entropy)
+    train_step = tf.train.MomentumOptimizer(training_rate, 0.9).minimize(cross_entropy)
 
     correct_prediction = tf.equal(tf.cast(tf.argmax(out, 1), tf.int64), y_)
     preds = tf.argmax(out, 1)
@@ -149,7 +149,7 @@ if __name__ == '__main__':
 
 
     MOD_PARAM = 500
-    ITERATIONS = 150000
+    ITERATIONS = 600000
     BATCH_SIZE = 128
 
     # Laptop tests only
