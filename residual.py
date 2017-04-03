@@ -33,12 +33,12 @@ def _res_block(input, dims, name, training):
             res_1 = _conv2d(input, _init_conv(dims, "W1"))
 
         batch_1 = tf.nn.relu(tf.layers.batch_normalization(res_1,
-                                                           name = "batch_norm_1", training = training))
+                                                           name = "batch_norm_1", trainable = training))
         dims[2] = dims[3] # Change the dimension after the first conv
         W2 = _init_conv(dims, "W2")
         # BN before non-linearlity
         res_out = tf.layers.batch_normalization(_conv2d(batch_1, W2),
-                                                name = "batch_norm_2", training = training)
+                                                name = "batch_norm_2", trainable = training)
 
     if diff:
         shrink_pool = tf.nn.avg_pool(input, ksize=[1,2,2,1], strides=[1,2,2,1], padding = 'SAME')
@@ -91,7 +91,7 @@ if __name__ == '__main__':
     init_out = tf.nn.relu(tf.layers.batch_normalization(
         _conv2d(x, W_init),
         name = "batch_norm_0",
-        training = training
+        trainable = training
     ))
 
     # Residual block 1
@@ -124,13 +124,13 @@ if __name__ == '__main__':
     b_fc = _init_weight([1000], "b_fc1")
     fc1 = tf.nn.relu(tf.layers.batch_normalization(tf.matmul(avg1_reshape, W_fc) + b_fc,
                                                    name = "fc1_batch_norm",
-                                                   training = training))
+                                                   trainable = training))
 
     W_out = _init_weight([1000, 10], "W_out")
     b_out = _init_weight([10], "b_out")
     out = tf.nn.relu(tf.layers.batch_normalization(tf.matmul(fc1, W_out) + b_out,
                                                    name = "fc_out_batch_norm",
-                                                   training = training))
+                                                   trainable = training))
 
     cross_entropy = tf.reduce_mean(
         tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y_, logits=out)
