@@ -48,9 +48,9 @@ def _res_block(input, dims, name, training):
         shrink_pool = tf.nn.avg_pool(input, ksize=[1,2,2,1], strides=[1,2,2,1], padding = 'SAME')
         padding = ((0, 0), (0, 0), (0, 0), (input_dims[3] / 2, input_dims[3] / 2))
         shrink_input = tf.pad(shrink_pool, padding)
-        return res_out + shrink_input
+        return tf.nn.relu(res_out + shrink_input)
 
-    return res_out + input
+    return tf.nn.relu(res_out + input)
 
 def next_batch(num):
     (X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
@@ -141,13 +141,12 @@ if __name__ == '__main__':
 
     accuracy = tf.reduce_sum(tf.cast(correct_prediction, tf.float32))
 
-    sess = tf.Session()
-    sess.run(tf.global_variables_initializer())
+    sess = tf.Session() sess.run(tf.global_variables_initializer())
 
 
-    MOD_PARAM = 500
-    ITERATIONS = 600000
-    BATCH_SIZE = 128
+    MOD_PARAM = 100000
+    ITERATIONS = 10000000
+    BATCH_SIZE = 32
 
     # Laptop tests only
     # MOD_PARAM = 1
