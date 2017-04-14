@@ -141,7 +141,8 @@ if __name__ == '__main__':
 
     accuracy = tf.reduce_sum(tf.cast(correct_prediction, tf.float32))
 
-    sess = tf.Session() sess.run(tf.global_variables_initializer())
+    sess = tf.Session()
+    sess.run(tf.global_variables_initializer())
 
 
     MOD_PARAM = 100000
